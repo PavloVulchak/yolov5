@@ -33,7 +33,10 @@ import os
 import platform
 import sys
 from pathlib import Path
-
+import paho.mqtt.client as mqtt
+import time,json
+import random
+import config
 import torch
 
 FILE = Path(__file__).resolve()
@@ -49,6 +52,24 @@ from utils.general import (LOGGER, Profile, check_file, check_img_size, check_im
 from utils.plots import Annotator, colors, save_one_box
 from utils.torch_utils import select_device, smart_inference_mode
 
+#Підключення
+def on_connect(client, userdata, flags, rc):
+    if rc==0:
+        client.connected_flag=True #set flag
+        print("Сonnected")
+    else:
+        print("Bad connection Returned code=",rc)
+        client.loop_stop()  
+
+#Відключення
+def on_disconnect(client, userdata, rc):
+   print("Client disconnected")
+
+#Відправлення повідомлень
+def on_publish(client, userdata, mid):
+    print("Publish: ",mid)
+    
+client = mqtt.Client()
 
 @smart_inference_mode()
 def run(
@@ -158,8 +179,10 @@ def run(
                 for c in det[:, 5].unique():
                     n = (det[:, 5] == c).sum()  # detections per class
                     s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string
-
                 # Write results
+                #З'єднання
+                client.username_pw_set(config.username, config.password)
+                client.connect(config.broker, config.port) #Підключення
                 for *xyxy, conf, cls in reversed(det):
                     if save_txt:  # Write to file
                         xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
@@ -171,9 +194,24 @@ def run(
                         c = int(cls)  # integer class
                         label = None if hide_labels else (names[c] if hide_conf else f'{names[c]} {conf:.2f}')
                         annotator.box_label(xyxy, label, color=colors(c, True))
+                        fild = torch.tensor(xyxy).view(1,4).tolist()
+                        dataBox=dict()
+                        dataBox = [
+                        {
+                        "nameRocket": str(names[c]),
+                        "posTopLeftXBox": int(fild[0][0]),
+                        "posTopLeftYBox": int(fild[0][1]),
+                        "posBottomRightXBox": int(fild[0][2]),
+                        "posBottomRightYBox": int(fild[0][3]),
+                        "HeightImage": int(gn[1]),
+                        "WidhtImage": int(gn[0]),
+                        } ]
+                        dataBox_out = json.dumps(dataBox)
+                        ret=client.publish(config.topic,dataBox_out,2)
+                        client.loop()
                     if save_crop:
                         save_one_box(xyxy, imc, file=save_dir / 'crops' / names[c] / f'{p.stem}.jpg', BGR=True)
-
+                client.disconnect() 
             # Stream results
             im0 = annotator.result()
             if view_img:
