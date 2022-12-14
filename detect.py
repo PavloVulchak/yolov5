@@ -52,23 +52,6 @@ from utils.general import (LOGGER, Profile, check_file, check_img_size, check_im
 from utils.plots import Annotator, colors, save_one_box
 from utils.torch_utils import select_device, smart_inference_mode
 
-#Підключення
-def on_connect(client, userdata, flags, rc):
-    if rc==0:
-        client.connected_flag=True #set flag
-        print("Сonnected")
-    else:
-        print("Bad connection Returned code=",rc)
-        client.loop_stop()  
-
-#Відключення
-def on_disconnect(client, userdata, rc):
-   print("Client disconnected")
-
-#Відправлення повідомлень
-def on_publish(client, userdata, mid):
-    print("Publish: ",mid)
-    
 client = mqtt.Client()
 
 @smart_inference_mode()
@@ -180,9 +163,8 @@ def run(
                     n = (det[:, 5] == c).sum()  # detections per class
                     s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string
                 # Write results
-                #З'єднання
-                client.username_pw_set(config.username, config.password)
-                client.connect(config.broker, config.port) #Підключення
+                client.connect("test.mosquitto.org", 1883)
+                
                 for *xyxy, conf, cls in reversed(det):
                     if save_txt:  # Write to file
                         xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
@@ -207,11 +189,9 @@ def run(
                         "WidhtImage": int(gn[0]),
                         } ]
                         dataBox_out = json.dumps(dataBox)
-                        ret=client.publish(config.topic,dataBox_out,2)
-                        client.loop()
+                        client.publish(config.topic, dataBox_out)
                     if save_crop:
                         save_one_box(xyxy, imc, file=save_dir / 'crops' / names[c] / f'{p.stem}.jpg', BGR=True)
-                client.disconnect() 
             # Stream results
             im0 = annotator.result()
             if view_img:
