@@ -178,8 +178,7 @@ def run(
                         annotator.box_label(xyxy, label, color=colors(c, True))
                         fild = torch.tensor(xyxy).view(1,4).tolist()
                         dataBox=dict()
-                        dataBox = [
-                        {
+                        dataBox = {
                         "nameRocket": str(names[c]),
                         "posTopLeftXBox": int(fild[0][0]),
                         "posTopLeftYBox": int(fild[0][1]),
@@ -187,7 +186,7 @@ def run(
                         "posBottomRightYBox": int(fild[0][3]),
                         "HeightImage": int(gn[1]),
                         "WidhtImage": int(gn[0]),
-                        } ]
+                        } 
                         dataBox_out = json.dumps(dataBox)
                         client.publish(config.topic, dataBox_out)
                     if save_crop:
